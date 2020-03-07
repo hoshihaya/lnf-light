@@ -1,0 +1,74 @@
+#!/bin/sh
+set -eu
+SCRIPT_NAME=$(basename "$0")
+
+MESSAGE=$@
+
+print_help() {
+cat <<EOS
+DESCRIPTION:
+  ${SCRIPT_NAME} is LINE Notify agent.
+
+  Please issue token from https://notify-bot.line.me/my and write the token to '~/.line/notify.token'.
+
+REQUIRED:
+  ~/.line/notify.token
+
+USAGES:
+  ${SCRIPT_NAME} <POST MESSAGE>
+
+EOS
+}
+
+if [ $# == 0 ]; then
+  echo "error: wrong number of arguments." 2>&1
+  echo ""
+  print_help
+  exit 1
+fi
+
+if [ $1 == '-h' ]; then
+  print_help
+  exit 0
+fi
+
+check_python(){
+  echo '{"a":1}' | python -m json.tool > /dev/null
+  RCODE=$?
+  if [ $RCODE -ne 0 ]; then
+    echo "error: didn't execute 'python -m json.tool'." >&2
+    exit 1
+  fi
+}
+check_token_file(){
+  if [ ! -d ~/.line ]; then
+    echo "error: '~/.line' directory was not found. Please issue token from https://notify-bot.line.me/my and write the token to '~/.line/notify.token'." >&2
+    exit 1
+  fi
+
+  if [ ! -f ~/.line/notify.token ]; then
+    echo "error: '~/.line/notify.token' file was not found. Please issue token from https://notify-bot.line.me/my and write the token to '~/.line/notify.token'." >&2
+    exit 1
+  fi
+}
+
+check_environments(){
+  check_python
+  check_token_file
+}
+
+post_message(){
+  LINE_NOTIFY_ACCESS_TOKEN=$(cat ~/.line/notify.token)
+  curl -Ss \
+    -X POST \
+    -H "Authorization: Bearer ${LINE_NOTIFY_ACCESS_TOKEN}" \
+    https://notify-api.line.me/api/notify -F "message=${MESSAGE}" |\
+    python -m json.tool
+}
+
+main(){
+    check_environments
+    post_message
+}
+
+main
